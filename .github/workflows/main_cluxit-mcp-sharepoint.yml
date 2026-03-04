@@ -34,7 +34,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_61F9C60146D941539ADA0CC9AE9C1307 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E9247FB4918344FD9585E39094240E7A }}
 
-      - name: Login to Azure Container Registry
+      - name: Login to Azure Container Registry via OIDC
         run: |
           az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
 
