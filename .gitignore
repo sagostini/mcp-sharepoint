@@ -9,3 +9,4 @@ dist
 .env
 .venv
 mcp_sharepoint.log
+.env.reply
