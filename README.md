@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://badge.fury.io/py/mcp-sharepoint.svg)](https://badge.fury.io/py/mcp-sharepoint)
 
-A comprehensive MCP Server for seamless integration with Microsoft SharePoint, enabling MCP clients to interact with documents, folders and other SharePoint resources. Built with efficiency and ease of use in mind, supporting both text and binary file operations. Developed by [sofias tech](https://github.com/Sofias-ai/mcp-sharepoint/).
+A comprehensive MCP Server for seamless integration with Microsoft SharePoint, enabling MCP clients to interact with documents, folders and other SharePoint resources. Built with efficiency and ease of use in mind, supporting both text and binary file operations. Developed by [Cluster DCX IT](https://github.com/Cluster-DCX-IT/mcp-sharepoint).
 
-<a href="https://glama.ai/mcp/servers/@Sofias-ai/mcp-sharepoint">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Sofias-ai/mcp-sharepoint/badge" alt="SharePoint Server MCP server" />
+<a href="https://glama.ai/mcp/servers/@Cluster-DCX-IT/mcp-sharepoint">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Cluster-DCX-IT/mcp-sharepoint/badge" alt="SharePoint Server MCP server" />
 </a>
 
 ## ✨ Key Features

@@ -2,7 +2,7 @@ import base64, os, fitz, io, logging, time, pandas as pd
 from typing import Dict, Any, List, Optional
 from docx import Document
 from openpyxl import load_workbook
-from .common import logger, SHP_DOC_LIBRARY, sp_context
+from .common import logger, SHP_DOC_LIBRARY, sp_context, retry_on_connection_error
 
 logger = logging.getLogger(__name__)
 
@@ -69,19 +69,23 @@ def _save_content_to_file(content_bytes: bytes, file_path: str) -> Dict[str, Any
 
 def _load_sp_items(path: str, item_type: str) -> List[Dict[str, Any]]:
     """Generic function to load folders or files from SharePoint"""
-    folder = sp_context.web.get_folder_by_server_relative_url(path)
-    items = getattr(folder, item_type)
-    props = ["ServerRelativeUrl", "Name", "TimeCreated", "TimeLastModified"] + (["Length"] if item_type == "files" else [])
-    sp_context.load(items, props)
-    sp_context.execute_query()
+    @retry_on_connection_error(max_retries=3, delay=1.0)
+    def _execute():
+        folder = sp_context.web.get_folder_by_server_relative_url(path)
+        items = getattr(folder, item_type)
+        props = ["ServerRelativeUrl", "Name", "TimeCreated", "TimeLastModified"] + (["Length"] if item_type == "files" else [])
+        sp_context.load(items, props)
+        sp_context.execute_query()
+        
+        return [{
+            "name": item.name,
+            "url": item.properties.get("ServerRelativeUrl"),
+            **({"size": item.properties.get("Length")} if item_type == "files" else {}),
+            "created": item.properties.get("TimeCreated").isoformat() if item.properties.get("TimeCreated") else None,
+            "modified": item.properties.get("TimeLastModified").isoformat() if item.properties.get("TimeLastModified") else None
+        } for item in items]
     
-    return [{
-        "name": item.name,
-        "url": item.properties.get("ServerRelativeUrl"),
-        **({"size": item.properties.get("Length")} if item_type == "files" else {}),
-        "created": item.properties.get("TimeCreated").isoformat() if item.properties.get("TimeCreated") else None,
-        "modified": item.properties.get("TimeLastModified").isoformat() if item.properties.get("TimeLastModified") else None
-    } for item in items]
+    return _execute()
 
 def list_folders(parent_folder: Optional[str] = None) -> List[Dict[str, Any]]:
     """List folders in the specified directory or root if not specified"""
@@ -137,10 +141,15 @@ def get_folder_tree(parent_folder: Optional[str] = None) -> Dict[str, Any]:
     logger.info(f"Building iterative tree for {parent_folder or 'root'}")
     
     try:
-        # Get root folder
-        root = sp_context.web.get_folder_by_server_relative_url(root_path)
-        sp_context.load(root, ["Name", "ServerRelativeUrl", "TimeCreated", "TimeLastModified"])
-        sp_context.execute_query()
+        # Get root folder with retry logic
+        @retry_on_connection_error(max_retries=3, delay=1.0)
+        def _get_root():
+            root = sp_context.web.get_folder_by_server_relative_url(root_path)
+            sp_context.load(root, ["Name", "ServerRelativeUrl", "TimeCreated", "TimeLastModified"])
+            sp_context.execute_query()
+            return root
+        
+        root = _get_root()
         
         # Process folders level by level
         pending = [parent_folder or ""]
@@ -203,16 +212,20 @@ def get_folder_tree(parent_folder: Optional[str] = None) -> Dict[str, Any]:
 
 def get_document_content(folder_name: str, file_name: str) -> dict:
     """Retrieve document content; supports PDF text extraction"""
-    file_path = _get_sp_path(f"{folder_name}/{file_name}")
-    file = sp_context.web.get_file_by_server_relative_url(file_path)
-    sp_context.load(file, ["Exists", "Length", "Name"])
-    sp_context.execute_query()
-    logger.info(f"File exists: {file.exists}, size: {file.length}")
+    @retry_on_connection_error(max_retries=3, delay=1.0)
+    def _download_file():
+        file_path = _get_sp_path(f"{folder_name}/{file_name}")
+        file = sp_context.web.get_file_by_server_relative_url(file_path)
+        sp_context.load(file, ["Exists", "Length", "Name"])
+        sp_context.execute_query()
+        logger.info(f"File exists: {file.exists}, size: {file.length}")
 
-    content = io.BytesIO()
-    file.download(content)
-    sp_context.execute_query()
-    content_bytes = content.getvalue()
+        content = io.BytesIO()
+        file.download(content)
+        sp_context.execute_query()
+        return content.getvalue(), file_name
+    
+    content_bytes, file_name = _download_file()
     
     # Determine file type and process accordingly
     lower_name = file_name.lower()
